@@ -1,0 +1,13 @@
+Events = COUNTROWS ( vw_FactEvents_Keyed )
+
+Failures = 
+CALCULATE (
+    [Events],
+    DimStatus[Status] IN { "Failed", "Error" }
+)
+
+Success % = DIVIDE ( [Events] - [Failures], [Events], 0 )
+
+Avg Duration (s) = AVERAGE ( vw_FactEvents_Keyed[DurationSecDerived] )
+
+Avg Ingestion Latency (s) = AVERAGE ( vw_FactEvents_Keyed[IngestionLatencySec] )
