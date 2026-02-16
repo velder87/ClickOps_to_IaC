@@ -204,47 +204,7 @@ resource adfDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-previe
 }
 
 //
-// 4) Databricks workspace + Diagnostics -> Log Analytics + Event Hub
-//
-var dbwManagedRgName = take('${resourceGroup().name}-dbw-managed-${uniq}', 90)
-
-resource databricksWorkspace 'Microsoft.Databricks/workspaces@2026-01-01' = {
-  name: names.dbw
-  location: location
-  tags: tags
-  sku: {
-    name: databricksSkuName
-  }
-  properties: {
-    computeMode: 'Hybrid'
-    managedResourceGroupId: subscriptionResourceId('Microsoft.Resources/resourceGroups', dbwManagedRgName)
-    publicNetworkAccess: databricksPublicNetworkAccess
-  }
-}
-
-resource dbwDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: names.dbwDiag
-  scope: databricksWorkspace
-  properties: {
-    logAnalyticsDestinationType: 'Dedicated'
-    workspaceId: logAnalytics.id
-    eventHubAuthorizationRuleId: ehSendRule.id
-    eventHubName: eventHub.name
-    logs: [
-      {
-        categoryGroup: 'allLogs'
-        enabled: true
-        retentionPolicy: {
-          enabled: false
-          days: 0
-        }
-      }
-    ]
-  }
-}
-
-//
-// 5) Optional: Log Analytics Workspace Data Export -> Event Hub
+// 4) Optional: Log Analytics Workspace Data Export -> Event Hub
 //    (Use ONLY if you want workspace tables exported. Deploy safely with enableWorkspaceDataExport=false)
 //
 resource lawDataExport 'Microsoft.OperationalInsights/workspaces/dataExports@2025-07-01' = if (enableWorkspaceDataExport) {
@@ -263,7 +223,7 @@ resource lawDataExport 'Microsoft.OperationalInsights/workspaces/dataExports@202
 }
 
 //
-// 6) Optional: Stream Analytics -> aggregates -> Azure SQL
+// 5) Optional: Stream Analytics -> aggregates -> Azure SQL
 //
 resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = if (enableStreamAnalytics) {
   name: names.sqlServer
@@ -370,14 +330,18 @@ resource asaTransform 'Microsoft.StreamAnalytics/streamingjobs/transformations@2
     streamingUnits: 1
     query: '''
       WITH Flat AS (
-        SELECT
-          r.ArrayValue AS rec
-        FROM
-          [ehIn] i
-          CROSS APPLY GetArrayElements(i.records) AS r
+        SELECT r.ArrayValue AS rec
+        FROM [ehIn] i
+        CROSS APPLY GetArrayElements(i.records) AS r
       )
       SELECT
-        'adf' AS source,
+        COALESCE(
+          GetRecordPropertyValue(rec, 'resourceProvider'),
+          Split(GetRecordPropertyValue(rec, 'operationName'), '/')[0],
+          Split(Split(GetRecordPropertyValue(rec, 'resourceId'), '/providers/')[1], '/')[0],
+          'unknown'
+        ) AS Source,
+      
         GetRecordPropertyValue(rec, 'category') AS category,
         TRY_CAST(GetRecordPropertyValue(rec,'time') AS datetime) AS event_time_utc,
         GetRecordPropertyValue(rec, 'resourceId') AS resource_id,
