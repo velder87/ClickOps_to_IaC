@@ -1,24 +1,4 @@
 WITH Flat AS (
-  SELECT
-    r.ArrayValue AS rec
-  FROM
-    [ehIn] i
-    CROSS APPLY GetArrayElements(i.records) AS r
-)
-SELECT
-  'adf' AS source,
-  GetRecordPropertyValue(rec, 'category') AS category,
-  TRY_CAST(GetRecordPropertyValue(rec,'time') AS datetime) AS event_time_utc,
-  GetRecordPropertyValue(rec, 'resourceId') AS resource_id,
-  GetRecordPropertyValue(rec, 'operationName') AS operation_name,
-  GetRecordPropertyValue(rec, 'level') AS level,
-  GetRecordPropertyValue(rec, 'status') AS status,
-  TRY_CAST(GetRecordPropertyValue(rec,'durationMs') AS bigint) AS duration_ms,
-  json_stringify(rec) AS payload_json
-INTO [sqlOut]
-FROM Flat;
-
-WITH Flat AS (
   SELECT r.ArrayValue AS rec
   FROM [ehIn] i
   CROSS APPLY GetArrayElements(i.records) AS r
