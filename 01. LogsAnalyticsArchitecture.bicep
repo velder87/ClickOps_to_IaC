@@ -364,4 +364,3 @@ output logAnalyticsWorkspaceId string = logAnalytics.id
 output eventHubNamespaceName string = eventHubNamespace.name
 output eventHubName string = eventHub.name
 output adfName string = adf.name
-output databricksWorkspaceName string = databricksWorkspace.name
